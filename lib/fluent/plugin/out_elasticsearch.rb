@@ -113,7 +113,11 @@ class Fluent::ElasticsearchOutput < Fluent::BufferedOutput
   end
 
   def format(tag, time, record)
-    [tag, time, record].to_msgpack
+    if time.is_a?(Integer)
+      [tag, time, record].to_msgpack
+    else
+      Fluent::Engine.msgpack_factory.packer.write([tag, time, record]).to_s
+    end
   end
 
   def shutdown
@@ -132,7 +136,7 @@ class Fluent::ElasticsearchOutput < Fluent::BufferedOutput
           time = Time.parse record[@time_key]
           record['@timestamp'] = record[@time_key]
         else
-          record.merge!({"@timestamp" => Time.at(time).to_datetime.to_s})
+          record.merge!({"@timestamp" => Time.at(time).strftime("%Y-%m-%dT%H:%M:%S.%L%z")})
         end
         if @utc_index
           target_index = "#{@logstash_prefix}-#{Time.at(time).getutc.strftime("#{@logstash_dateformat}")}"
